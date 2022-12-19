@@ -61,7 +61,11 @@ class RecAPI:
         response = requests.get(self.apiUrl + path, **kwargs)
         response.encoding = "utf-8-sig"
 
-        resp = response.json()
+        try:
+            resp = response.json()
+        except json.decoder.JSONDecodeError:
+            print(response.text)
+            raise
         if token and resp["status_code"] == 401:
             self.refresh_token()
             kwargs["headers"]["X-auth-token"] = self.user_auth.auth_token
@@ -77,7 +81,11 @@ class RecAPI:
         response = requests.post(self.apiUrl + path, **kwargs)
         response.encoding = "utf-8-sig"
 
-        resp = response.json()
+        try:
+            resp = response.json()
+        except json.decoder.JSONDecodeError:
+            print(response.text)
+            raise
         if token and resp["status_code"] == 401:
             self.refresh_token()
             kwargs["headers"]["X-auth-token"] = self.user_auth.auth_token
@@ -167,25 +175,28 @@ class RecAPI:
             raise RuntimeError(f"refresh token failed: {response.get('message')}")
         msg_server = response["entity"]["msg_encrypt"]
         msg_server = self.aes_decrypt(msg_server)
-        msg_server = json.loads(msg_server)
+        try:
+            msg_server = json.loads(msg_server)
+        except json.decoder.JSONDecodeError:
+            raise RuntimeError(f"refresh token failed when decoding json: {msg_server}")
 
         self.user_auth.auth_token = msg_server["x_auth_token"]
         self.user_auth.refresh_token = msg_server["refresh_token"]
         self.refreshed = True
+        print("[Token refreshed]")
 
     def list_by_id(self, id):
         params = {
             "is_rec": "false",
-            "is_star": "false",
             "category": "all",
-            "offset": "0",
-            "limit": "1000",
             "disk_type": "cloud",
         }
         if id == "B_0":
             params["disk_type"] = "backup"
+            id = "0"
         elif id == "R_0":
             params["disk_type"] = "recycle"
+
         response = self.get(
             f"folder/content/{id}",
             params=params,
@@ -282,20 +293,27 @@ class RecAPI:
                 "action": action,
                 "disk_type": "cloud",
                 "files_list": [{"number": id, "type": id_type}],
-                "number": "0" if dst_id == "B_0" else dst_id
+                "number": "0" if dst_id == "B_0" else dst_id,
             },
         )
         if response["status_code"] != 200:
             raise RuntimeError(f"operation_by_id failed: {response.get('message')}")
-    
+
     def rename_by_id(self, id, new_name, id_type):
         response = self.post(
-            "rename",
-            json={
-                "name": new_name,
-                "number": id,
-                "type": id_type
-            }
+            "rename", json={"name": new_name, "number": id, "type": id_type}
         )
         if response["status_code"] != 200:
             raise RuntimeError(f"rename_by_id failed: {response.get('message')}")
+    
+    def mkdir_by_folder_id(self, folder_id, name):
+        response = self.post(
+            "folder/tree",
+            json={
+                "disk_type": "cloud",
+                "number": folder_id,
+                "paramslist": [name],
+            },
+        )
+        if response["status_code"] != 200:
+            raise RuntimeError(f"mkdir_by_folder_id failed: {response.get('message')}")
