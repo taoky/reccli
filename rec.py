@@ -111,12 +111,15 @@ class RecAPI:
         payload = pad(payload)
         return base64.b64encode(cipher.encrypt(payload))
 
-    def aes_decrypt(self, data) -> str:
+    def aes_decrypt(self, data, header_strip=True) -> str:
         cipher = AES.new(self.aesKey, AES.MODE_CBC, iv=self.aesKey[::-1])
         data = base64.b64decode(data)
         raw = cipher.decrypt(data)
-        msg_size = int.from_bytes(raw[:4], byteorder="big")
-        return unpad(raw[4 : msg_size + 4]).decode("utf-8")[12:]
+        data = unpad(raw)
+        if header_strip:
+            return data[16:].decode("utf-8")
+        else:
+            return data.decode("utf-8")
 
     def serialize_dict(self, dic: dict) -> str:
         return "&".join([key + "=" + dic[key] for key in sorted(dic)])
@@ -174,7 +177,8 @@ class RecAPI:
         if response["status_code"] != 200:
             raise RuntimeError(f"refresh token failed: {response.get('message')}")
         msg_server = response["entity"]["msg_encrypt"]
-        msg_server = self.aes_decrypt(msg_server)
+        # why is this different from login?
+        msg_server = self.aes_decrypt(msg_server, header_strip=False)
         try:
             msg_server = json.loads(msg_server)
         except json.decoder.JSONDecodeError:
