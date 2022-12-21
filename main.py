@@ -93,6 +93,15 @@ def crawl(path, cwd_path, cwd_id):
     return cwd_path, cwd_id
 
 
+# https://stackoverflow.com/a/1094933
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f} {unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f} Yi{suffix}"
+
+
 def main():
     cwd_path = "/"
     cwd_id = "0"
@@ -122,11 +131,13 @@ def main():
             elif command == "info":
                 print(api.user_auth)
                 print(cwd_path, cwd_id)
+                print("Userinfo:", api.userinfo())
             elif command == "help":
                 print("Available commands:")
                 print("exit, login, refresh, info, help")
                 print("ls, cd, get, put, rm")
                 print("rename, copy, move, restore, mkdir")
+                print("df")
                 print("Debugging commands:")
                 print(
                     "list_id, download_id, upload_to_folder_id, recycle_id, restore_id, rename_id"
@@ -297,7 +308,9 @@ def main():
                 path, id = crawl(splitted[1], cwd_path, cwd_id)
                 filetype = "folder" if path[-1] == "/" else "file"
                 if "?Recycle" in path:
-                    y = input(f"Are you sure to permanently delete this {filetype}? (y/N) ")
+                    y = input(
+                        f"Are you sure to permanently delete this {filetype}? (y/N) "
+                    )
                     if y != "y":
                         print("Aborted.")
                         continue
@@ -314,18 +327,24 @@ def main():
                     print("Usage: rename <path> <new_name>")
                     continue
                 path, id = crawl(sub_splitted[0], cwd_path, cwd_id)
-                filetype = "folder" if path[-1] == "/" else "file"                    
+                filetype = "folder" if path[-1] == "/" else "file"
                 new_name = sub_splitted[1]
                 if filetype == "file":
                     ext = path.rsplit(".", maxsplit=1)[-1]
                     if "." in new_name:
                         if ext != new_name.rsplit(".", maxsplit=1)[-1]:
-                            print("Warning: rec DOES NOT support changing file extensions")
-                            print(f"This file will probably be renamed to {new_name}.{ext}")
+                            print(
+                                "Warning: rec DOES NOT support changing file extensions"
+                            )
+                            print(
+                                f"This file will probably be renamed to {new_name}.{ext}"
+                            )
                         else:
-                            print(f"Note: use debugging API (rename_id) if you want to change filename to {new_name}.{ext}")
+                            print(
+                                f"Note: use debugging API (rename_id) if you want to change filename to {new_name}.{ext}"
+                            )
                             new_name = new_name.rsplit(".", maxsplit=1)[0]
-                    
+
                 api.rename_by_id(get_final_id(id), new_name, filetype)
             elif command == "copy" or command == "move" or command == "restore":
                 if len(splitted) == 1:
@@ -342,12 +361,21 @@ def main():
                     raise ValueError("Destination should be a directory")
                 if command == "restore" and "?Recycle" not in path:
                     raise ValueError("restore only works on files in recycle bin")
-                api.operation_by_id(command, get_final_id(id), filetype, get_final_id(dst_id))
+                api.operation_by_id(
+                    command, get_final_id(id), filetype, get_final_id(dst_id)
+                )
             elif command == "mkdir":
                 if len(splitted) == 1:
                     print("Usage: mkdir <name>")
                     continue
                 api.mkdir_by_folder_id(get_final_id(cwd_id), splitted[1])
+            elif command == "df":
+                userinfo = api.userinfo()
+                used = int(userinfo["used_space"])
+                total = int(userinfo["total_space"])
+                print(
+                    f"User disk usage: {used} B / {total} B ({sizeof_fmt(used)} / {sizeof_fmt(total)})"
+                )
             else:
                 print(f"Unknown command: {command}")
 

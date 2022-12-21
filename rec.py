@@ -309,7 +309,7 @@ class RecAPI:
         )
         if response["status_code"] != 200:
             raise RuntimeError(f"rename_by_id failed: {response.get('message')}")
-    
+
     def mkdir_by_folder_id(self, folder_id, name):
         response = self.post(
             "folder/tree",
@@ -321,3 +321,9 @@ class RecAPI:
         )
         if response["status_code"] != 200:
             raise RuntimeError(f"mkdir_by_folder_id failed: {response.get('message')}")
+
+    def userinfo(self):
+        response = self.get("userinfo")
+        if response["status_code"] != 200:
+            raise RuntimeError(f"userinfo failed: {response.get('message')}")
+        return response["entity"]
