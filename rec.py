@@ -232,6 +232,8 @@ class RecAPI:
 
     def download_url_by_id(self, id):
         response = self.post("download", json={"files_list": [id]})
+        if response["status_code"] != 200:
+            raise RuntimeError(f"download_url_by_id failed: {response.get('message')}")
         return response["entity"][id]
 
     def upload_by_folder_id(self, folder_id: str, file_path: Path):
