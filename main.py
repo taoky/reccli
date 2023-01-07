@@ -9,6 +9,7 @@ from getpass import getpass
 from urllib.parse import urlparse, parse_qs
 import readline
 from tabulate import tabulate
+from urllib.parse import unquote
 
 readline.parse_and_bind("tab: complete")
 
@@ -17,9 +18,30 @@ service_name = "reccli"
 
 
 def login():
-    username = input("Username: ")
-    password = getpass("Password: ")
-    api.login(username, password)
+    print(
+        "By default, your CAS username and password will be sent to https://recapi.ustc.edu.cn"
+    )
+    print(
+        "You can login in browser manually and paste the output of `document.cookie` in Developer Console instead"
+    )
+    username = input("Username or cookie: ")
+    if "Rec-Token" in username:
+        # parse username as cookie
+        cookie = dict(i.split("=", 1) for i in username.strip('"').split("; "))
+
+        auth_token = cookie["Rec-Token"]
+        refresh_otken = json.loads(unquote(cookie["Rec-RefreshToken"]))["refresh_token"]
+        user_auth = UserAuth(
+            gid="Unknown",
+            username="Unknown",
+            name="Unknown",
+            auth_token=auth_token,
+            refresh_token=refresh_otken,
+        )
+        api.user_auth = user_auth
+    else:
+        password = getpass("Password: ")
+        api.login(username, password)
 
 
 def update_keyring():
@@ -31,9 +53,7 @@ def update_keyring():
 def auth():
     userauth_json = keyring.get_password(service_name, "userauth")
     if userauth_json is None:
-        username = input("Username: ")
-        password = getpass("Password: ")
-        api.login(username, password)
+        login()
         update_keyring()
     else:
         user_auth = UserAuth(**json.loads(userauth_json))
