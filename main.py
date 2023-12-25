@@ -10,6 +10,7 @@ from urllib.parse import urlparse, parse_qs
 import readline
 from tabulate import tabulate
 from urllib.parse import unquote
+import shlex
 
 readline.parse_and_bind("tab: complete")
 
@@ -124,6 +125,11 @@ def sizeof_fmt(num, suffix="B"):
     return f"{num:.1f} Yi{suffix}"
 
 
+def check_id_type(id_type: str) -> None:
+    if id_type != "file" and id_type != "folder":
+        raise ValueError("Invalid type: should be file or folder")
+
+
 def main():
     cwd_path = "/"
     cwd_id = "0"
@@ -139,7 +145,7 @@ def main():
         except KeyboardInterrupt:
             print("")
             continue
-        splitted = user_input.split(None, maxsplit=1)
+        splitted = shlex.split(user_input)
         if len(splitted) == 0:
             continue
         command = splitted[0]
@@ -166,7 +172,7 @@ def main():
                 )
                 print("delete_id, copy_id, move_id, mkdir_id")
             elif command == "list_id":
-                if len(splitted) == 1:
+                if len(splitted) != 2:
                     print("Usage: list_id <id>")
                     continue
                 lid = splitted[1]
@@ -174,13 +180,12 @@ def main():
                 for obj in objs:
                     print(obj)
             elif command == "download_id":
-                if len(splitted) == 1:
+                if len(splitted) not in (2, 3):
                     print("Usage: download_id <id> [<dest>]")
                     continue
-                sub_splitted = splitted[1].split(maxsplit=1)
-                did = sub_splitted[0]
-                if len(sub_splitted) > 1:
-                    dest = sub_splitted[1]
+                did = splitted[1]
+                if len(splitted) == 3:
+                    dest = splitted[2]
                 else:
                     dest = "./"
                 url = api.download_url_by_id(did)
@@ -200,28 +205,22 @@ def main():
                 except KeyboardInterrupt:
                     print("(Interrupted)")
             elif command == "upload_to_folder_id":
-                if len(splitted) == 1:
-                    sub_splitted = None
-                else:
-                    sub_splitted = splitted[1].split(maxsplit=1)
-                if len(splitted) == 1 or len(sub_splitted) != 2:
+                if len(splitted) != 3:
                     print("Usage: upload_to_folder_id <folder_id> <local_file>")
                     continue
 
-                fid = sub_splitted[0]
-                local_file = Path(sub_splitted[1])
+                fid = splitted[1]
+                local_file = Path(splitted[2])
 
                 api.upload_by_folder_id(fid, local_file)
             elif command == "recycle_id" or command == "delete_id":
-                if len(splitted) == 1:
+                if len(splitted) not in (2, 3):
                     print(f"Usage: {command} <id> [<type (default=file)>]")
                     continue
-                sub_splitted = splitted[1].split(maxsplit=1)
-                rid = sub_splitted[0]
-                if len(sub_splitted) > 1:
-                    id_type = sub_splitted[1]
-                    if id_type != "file" and id_type != "folder":
-                        raise ValueError("Invalid type: should be file or folder")
+                rid = splitted[1]
+                if len(splitted) == 3:
+                    id_type = splitted[2]
+                    check_id_type(id_type)
                 else:
                     id_type = "file"
                 if command == "delete_id":
@@ -232,32 +231,28 @@ def main():
                 action = "recycle" if command == "recycle_id" else "delete"
                 api.operation_by_id(action, rid, id_type)
             elif command == "rename_id":
-                if len(splitted) == 1:
+                if len(splitted) not in (3, 4):
                     print("Usage: rename_id <id> <new_name> [<type (default=file)>]")
                     continue
-                sub_splitted = splitted[1].split(maxsplit=2)
-                rid = sub_splitted[0]
-                new_name = sub_splitted[1]
-                if len(sub_splitted) > 2:
-                    id_type = sub_splitted[2]
-                    if id_type != "file" and id_type != "folder":
-                        raise ValueError("Invalid type: should be file or folder")
+                rid = splitted[1]
+                new_name = splitted[2]
+                if len(splitted) == 4:
+                    id_type = splitted[3]
+                    check_id_type(id_type)
                 else:
                     id_type = "file"
                 api.rename_by_id(rid, new_name, id_type)
             elif (
                 command == "copy_id" or command == "move_id" or command == "restore_id"
             ):
-                if len(splitted) == 1:
+                if len(splitted) not in (3, 4):
                     print(f"Usage: {command} <dst_id> <src_id> [<type (default=file)>]")
                     continue
-                sub_splitted = splitted[1].split(maxsplit=2)
-                dst_id = sub_splitted[0]
-                src_id = sub_splitted[1]
-                if len(sub_splitted) > 2:
-                    id_type = sub_splitted[2]
-                    if id_type != "file" and id_type != "folder":
-                        raise ValueError("Invalid type: should be file or folder")
+                dst_id = splitted[1]
+                src_id = splitted[2]
+                if len(splitted) == 4:
+                    id_type = splitted[3]
+                    check_id_type(id_type)
                 else:
                     id_type = "file"
                 if command == "copy_id":
@@ -270,23 +265,25 @@ def main():
                     assert 0
                 api.operation_by_id(action, src_id, id_type, dst_id)
             elif command == "mkdir_id":
-                if len(splitted) == 1:
+                if len(splitted) != 3:
                     print("Usage: mkdir_id <parent_id> <name>")
                     continue
-                sub_splitted = splitted[1].split(maxsplit=1)
-                pid = sub_splitted[0]
-                name = sub_splitted[1]
+                pid = splitted[1]
+                name = splitted[2]
                 api.mkdir_by_folder_id(pid, name)
             elif command == "ls":
                 if len(splitted) == 1:
                     did = get_final_id(cwd_id)
-                else:
+                elif len(splitted) == 2:
                     path, id = crawl(splitted[1], cwd_path, cwd_id)
                     if path[-1] != "/":
                         raise ValueError(
                             "ls does not support showing single file stats"
                         )
                     did = id
+                else:
+                    print("Usage: ls [<path>]")
+                    continue
                 objs = api.list_by_id(did)
                 table = []
                 if did == "0":
@@ -299,12 +296,12 @@ def main():
                     table.append([name, obj.creator.real_name, obj.size, obj.mtime])
                 print(tabulate(table, headers=["Name", "Creator", "Size", "Modified"]))
             elif command == "cd":
-                if len(splitted) == 1:
+                if len(splitted) != 2:
                     print("Usage: cd <path>")
                     continue
                 cwd_path, cwd_id = crawl(splitted[1], cwd_path, cwd_id)
             elif command == "get":
-                if len(splitted) == 1:
+                if len(splitted) != 2:
                     print("Usage: get <path>")
                     continue
                 path, id = crawl(splitted[1], cwd_path, cwd_id)
@@ -316,7 +313,7 @@ def main():
                 url = api.download_url_by_id(id)
                 print(f"You can download this file via: {url}")
             elif command == "put":
-                if len(splitted) == 1:
+                if len(splitted) != 2:
                     print("Usage: put <local_file>")
                     continue
                 local_file = Path(splitted[1])
@@ -324,7 +321,7 @@ def main():
                 print(f"Uploading {local_file} to current working directory")
                 api.upload_by_folder_id(get_final_id(cwd_id), local_file)
             elif command == "rm":
-                if len(splitted) == 1:
+                if len(splitted) != 2:
                     print("Usage: rm <path>")
                     continue
                 path, id = crawl(splitted[1], cwd_path, cwd_id)
@@ -341,16 +338,12 @@ def main():
                     action = "recycle"
                 api.operation_by_id(action, get_final_id(id), filetype)
             elif command == "rename":
-                if len(splitted) == 1:
-                    sub_splitted = None
-                else:
-                    sub_splitted = splitted[1].split(maxsplit=2)
-                if len(splitted) == 1 or len(sub_splitted) != 2:
+                if len(splitted) != 3:
                     print("Usage: rename <path> <new_name>")
                     continue
-                path, id = crawl(sub_splitted[0], cwd_path, cwd_id)
+                path, id = crawl(splitted[1], cwd_path, cwd_id)
                 filetype = "folder" if path[-1] == "/" else "file"
-                new_name = sub_splitted[1]
+                new_name = splitted[2]
                 if filetype == "file":
                     # rename_by_id does not support file ext renaming
                     # see https://github.com/taoky/reccli/issues/1 for more information
@@ -358,15 +351,11 @@ def main():
                 else:
                     api.rename_by_id(get_final_id(id), new_name, filetype)
             elif command == "copy" or command == "move" or command == "restore":
-                if len(splitted) == 1:
-                    sub_splitted = None
-                else:
-                    sub_splitted = splitted[1].split(maxsplit=2)
-                if len(splitted) == 1 or len(sub_splitted) != 2:
+                if len(splitted) != 3:
                     print(f"Usage: {command} <src> <dst_dir>")
                     continue
-                path, id = crawl(sub_splitted[0], cwd_path, cwd_id)
-                dst_path, dst_id = crawl(sub_splitted[1], cwd_path, cwd_id)
+                path, id = crawl(splitted[1], cwd_path, cwd_id)
+                dst_path, dst_id = crawl(splitted[2], cwd_path, cwd_id)
                 filetype = "folder" if path[-1] == "/" else "file"
                 if dst_path[-1] != "/":
                     raise ValueError("Destination should be a directory")
@@ -376,7 +365,7 @@ def main():
                     command, get_final_id(id), filetype, get_final_id(dst_id)
                 )
             elif command == "mkdir":
-                if len(splitted) == 1:
+                if len(splitted) != 2:
                     print("Usage: mkdir <name>")
                     continue
                 api.mkdir_by_folder_id(get_final_id(cwd_id), splitted[1])
