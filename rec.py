@@ -8,11 +8,11 @@ from Crypto.Cipher import AES
 import hashlib
 
 
-def pad(m: bytes):
+def pad(m: bytes) -> bytes:
     return m + bytes([32 - len(m) % 32]) * (32 - len(m) % 32)
 
 
-def unpad(m: bytes):
+def unpad(m: bytes) -> bytes:
     return m[: -m[-1]]
 
 
@@ -55,6 +55,7 @@ class RecAPI:
 
     def get(self, path: str, token: bool = True, **kwargs):
         if token:
+            assert self.user_auth is not None
             if "headers" not in kwargs:
                 kwargs["headers"] = {}
             kwargs["headers"]["X-auth-token"] = self.user_auth.auth_token
@@ -75,6 +76,7 @@ class RecAPI:
 
     def post(self, path: str, token: bool = True, **kwargs):
         if token:
+            assert self.user_auth is not None
             if "headers" not in kwargs:
                 kwargs["headers"] = {}
             kwargs["headers"]["X-auth-token"] = self.user_auth.auth_token
@@ -103,7 +105,7 @@ class RecAPI:
             raise RuntimeError(f"get tempticket failed: {response.get('message')}")
         return response["entity"]["tempticket"]
 
-    def aes_encrypt(self, data):
+    def aes_encrypt(self, data: str) -> bytes:
         cipher = AES.new(self.aesKey, AES.MODE_CBC, iv=self.aesKey[::-1])
         size = len(data)
         payload = int.to_bytes(size, 4, byteorder="big") + data.encode("utf-8")
@@ -111,7 +113,7 @@ class RecAPI:
         payload = pad(payload)
         return base64.b64encode(cipher.encrypt(payload))
 
-    def aes_decrypt(self, data, header_strip=True) -> str:
+    def aes_decrypt(self, data: str, header_strip: bool = True) -> str:
         cipher = AES.new(self.aesKey, AES.MODE_CBC, iv=self.aesKey[::-1])
         data = base64.b64decode(data)
         raw = cipher.decrypt(data)
@@ -124,7 +126,7 @@ class RecAPI:
     def serialize_dict(self, dic: dict) -> str:
         return "&".join([key + "=" + dic[key] for key in sorted(dic)])
 
-    def login(self, username, password):
+    def login(self, username: str, password: str) -> None:
         tempticket = self.get_tempticket()
         login_info = {
             "username": username,
@@ -189,7 +191,7 @@ class RecAPI:
         self.refreshed = True
         print("[Token refreshed]")
 
-    def list_by_id(self, id):
+    def list_by_id(self, id: str) -> list[FileObject]:
         params = {
             "is_rec": "false",
             "category": "all",
@@ -230,13 +232,13 @@ class RecAPI:
             )
         return objs
 
-    def download_url_by_id(self, id):
+    def download_url_by_id(self, id: str) -> str:
         response = self.post("download", json={"files_list": [id]})
         if response["status_code"] != 200:
             raise RuntimeError(f"download_url_by_id failed: {response.get('message')}")
         return response["entity"][id]
 
-    def upload_by_folder_id(self, folder_id: str, file_path: Path):
+    def upload_by_folder_id(self, folder_id: str, file_path: Path) -> None:
         filename = file_path.name
         filesize = file_path.stat().st_size
         # 1. Get upload URL
@@ -257,6 +259,7 @@ class RecAPI:
 
         with open(file_path, "rb") as f:
             # 2. Upload file
+            assert self.user_auth is not None
             for idx, i in enumerate(response["entity"]["upload_params"]):
                 data = f.read(upload_chunk_size)
                 if not data:
@@ -290,7 +293,7 @@ class RecAPI:
         else:
             print("Upload complete")
 
-    def operation_by_id(self, action: str, id, id_type, dst_id=""):
+    def operation_by_id(self, action: str, id: str, id_type: str, dst_id : str = "") -> None:
         # only move and copy uses dst_id
         assert action in ["recycle", "delete", "restore", "move", "copy"]
         response = self.post(
@@ -305,7 +308,7 @@ class RecAPI:
         if response["status_code"] != 200:
             raise RuntimeError(f"operation_by_id failed: {response.get('message')}")
 
-    def rename_by_id(self, id, new_name, id_type):
+    def rename_by_id(self, id: str, new_name: str, id_type: str) -> None:
         response = self.post(
             "rename", json={"name": new_name, "number": id, "type": id_type}
         )
@@ -315,12 +318,12 @@ class RecAPI:
     # https://github.com/taoky/reccli/issues/1
     # Use new API to rename file with ext support
     # The new API does not support directory rename, so rename_by_id is still needed
-    def rename_by_id_ext(self, id, new_name):
+    def rename_by_id_ext(self, id: str, new_name: str) -> None:
         response = self.post("rename_ext", json={"name": new_name, "number": id})
         if response["status_code"] != 200:
             raise RuntimeError(f"rename_by_id_ext failed: {response.get('message')}")
 
-    def mkdir_by_folder_id(self, folder_id, name):
+    def mkdir_by_folder_id(self, folder_id: str, name: str) -> None:
         response = self.post(
             "folder/tree",
             json={
@@ -332,7 +335,7 @@ class RecAPI:
         if response["status_code"] != 200:
             raise RuntimeError(f"mkdir_by_folder_id failed: {response.get('message')}")
 
-    def userinfo(self):
+    def userinfo(self) -> dict:
         response = self.get("userinfo")
         if response["status_code"] != 200:
             raise RuntimeError(f"userinfo failed: {response.get('message')}")

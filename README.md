@@ -1,9 +1,12 @@
 # reccli
-A proof-of-concept of rec.ustc.edu.cn client
+
+A proof-of-concept of rec.ustc.edu.cn client.
+
+Note that now it uses some new type-hint features of Python, thus requiring Python 3.10+.
 
 ## Example
 
-```
+```console
 > python main.py
 [/] > ls
 Name                                              Creator    Size        Modified

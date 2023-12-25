@@ -5,6 +5,7 @@ import subprocess
 import traceback
 import keyring
 from rec import RecAPI, UserAuth
+import rec   # typing
 from getpass import getpass
 from urllib.parse import urlparse, parse_qs
 import readline
@@ -18,7 +19,7 @@ api = RecAPI()
 service_name = "reccli"
 
 
-def login():
+def login() -> None:
     print(
         "By default, your CAS username and password will be sent to https://recapi.ustc.edu.cn"
     )
@@ -47,13 +48,14 @@ def login():
         api.login(username, password)
 
 
-def update_keyring():
+def update_keyring() -> None:
+    assert api.user_auth is not None
     keyring.set_password(
         service_name, "userauth", json.dumps(dataclasses.asdict(api.user_auth))
     )
 
 
-def auth():
+def auth() -> None:
     userauth_json = keyring.get_password(service_name, "userauth")
     if userauth_json is None:
         login()
@@ -63,18 +65,18 @@ def auth():
         api.user_auth = user_auth
 
 
-def obj_name(obj):
+def obj_name(obj: rec.FileObject) -> str:
     if obj.ext:
         return f"{obj.name}.{obj.ext}"
     else:
         return obj.name
 
 
-def get_final_id(id):
+def get_final_id(id: str) -> str:
     return id.rsplit("/", maxsplit=1)[-1]
 
 
-def crawl(path, cwd_path, cwd_id):
+def crawl(path: str, cwd_path: str, cwd_id: str) -> tuple[str, str]:
     if path.startswith("/"):
         cwd_path = "/"
         cwd_id = "0"
@@ -117,7 +119,7 @@ def crawl(path, cwd_path, cwd_id):
 
 
 # https://stackoverflow.com/a/1094933
-def sizeof_fmt(num, suffix="B"):
+def sizeof_fmt(num: int | float, suffix : str = "B") -> str:
     for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
         if abs(num) < 1024.0:
             return f"{num:3.1f} {unit}{suffix}"
@@ -130,7 +132,7 @@ def check_id_type(id_type: str) -> None:
         raise ValueError("Invalid type: should be file or folder")
 
 
-def main():
+def main() -> None:
     cwd_path = "/"
     cwd_id = "0"
 
@@ -293,7 +295,7 @@ def main():
                     name = obj_name(obj)
                     if obj.typ == "folder":
                         name = f"[{name}/]"
-                    table.append([name, obj.creator.real_name, obj.size, obj.mtime])
+                    table.append([name, obj.creator.real_name, str(obj.size), str(obj.mtime)])
                 print(tabulate(table, headers=["Name", "Creator", "Size", "Modified"]))
             elif command == "cd":
                 if len(splitted) != 2:
