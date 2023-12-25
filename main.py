@@ -26,6 +26,8 @@ def login():
     )
     username = input("Username or cookie: ")
     if "Rec-Token" in username:
+        # strip out whitespace
+        username = username.strip()
         # parse username as cookie
         cookie = dict(i.split("=", 1) for i in username.strip('"').split("; "))
 
