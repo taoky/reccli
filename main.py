@@ -43,6 +43,7 @@ def login() -> None:
             refresh_token=refresh_otken,
         )
         api.user_auth = user_auth
+        api.refreshed = True
     else:
         password = getpass("Password: ")
         api.login(username, password)
