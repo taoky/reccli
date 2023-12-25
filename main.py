@@ -173,7 +173,7 @@ def main() -> None:
                 print(
                     "list_id, download_id, upload_to_folder_id, recycle_id, restore_id, rename_id"
                 )
-                print("delete_id, copy_id, move_id, mkdir_id")
+                print("delete_id, copy_id, move_id, mkdir_id, rename_id_ext")
             elif command == "list_id":
                 if len(splitted) != 2:
                     print("Usage: list_id <id>")
@@ -233,9 +233,9 @@ def main() -> None:
                         continue
                 action = "recycle" if command == "recycle_id" else "delete"
                 api.operation_by_id(action, rid, id_type)
-            elif command == "rename_id":
+            elif command == "rename_id" or command == "rename_id_ext":
                 if len(splitted) not in (3, 4):
-                    print("Usage: rename_id <id> <new_name> [<type (default=file)>]")
+                    print(f"Usage: {command} <id> <new_name> [<type (default=file)>]")
                     continue
                 rid = splitted[1]
                 new_name = splitted[2]
@@ -244,7 +244,12 @@ def main() -> None:
                     check_id_type(id_type)
                 else:
                     id_type = "file"
-                api.rename_by_id(rid, new_name, id_type)
+                if command == "rename_id":
+                    api.rename_by_id(rid, new_name, id_type)
+                else:
+                    if id_type != "file":
+                        raise ValueError("rename_id_ext only works on files")
+                    api.rename_by_id_ext(rid, new_name)
             elif (
                 command == "copy_id" or command == "move_id" or command == "restore_id"
             ):
