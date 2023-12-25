@@ -311,6 +311,16 @@ class RecAPI:
         )
         if response["status_code"] != 200:
             raise RuntimeError(f"rename_by_id failed: {response.get('message')}")
+    
+    # https://github.com/taoky/reccli/issues/1
+    # Use new API to rename file with ext support
+    # The new API does not support directory rename, so rename_by_id is still needed
+    def rename_by_id_ext(self, id, new_name):
+        response = self.post(
+            "rename_ext", json={"name": new_name, "number": id}
+        )
+        if response["status_code"] != 200:
+            raise RuntimeError(f"rename_by_id_ext failed: {response.get('message')}")
 
     def mkdir_by_folder_id(self, folder_id, name):
         response = self.post(

@@ -350,22 +350,11 @@ def main():
                 filetype = "folder" if path[-1] == "/" else "file"
                 new_name = sub_splitted[1]
                 if filetype == "file":
-                    ext = path.rsplit(".", maxsplit=1)[-1]
-                    if "." in new_name:
-                        if ext != new_name.rsplit(".", maxsplit=1)[-1]:
-                            print(
-                                "Warning: rec DOES NOT support changing file extensions"
-                            )
-                            print(
-                                f"This file will probably be renamed to {new_name}.{ext}"
-                            )
-                        else:
-                            print(
-                                f"Note: use debugging API (rename_id) if you want to change filename to {new_name}.{ext}"
-                            )
-                            new_name = new_name.rsplit(".", maxsplit=1)[0]
-
-                api.rename_by_id(get_final_id(id), new_name, filetype)
+                    # rename_by_id does not support file ext renaming
+                    # see https://github.com/taoky/reccli/issues/1 for more information
+                    api.rename_by_id_ext(get_final_id(id), new_name)
+                else:
+                    api.rename_by_id(get_final_id(id), new_name, filetype)
             elif command == "copy" or command == "move" or command == "restore":
                 if len(splitted) == 1:
                     sub_splitted = None
